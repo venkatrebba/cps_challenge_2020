@@ -19,8 +19,14 @@ rosservice call /mavros/set_mode "base_mode: 0 custom_mode: 'OFFBOARD'"
 rosservice call /mavros/cmd/arming "value: true"
 ```
  	
-RTAB Map:
-![Screen Shot 2022-04-07 at 11 55 46 PM](https://user-images.githubusercontent.com/32699857/162385515-70dcae1d-a085-49ad-ba41-f7e523fceb67.png)
-
-
   
+
+# RTAB Map:
+
+Mapped rock with RTAB Map.
+
+
+Screenshot
+![Screen Shot 2022-04-14 at 6 52 04 PM](https://user-images.githubusercontent.com/32699857/163505339-5dee14ba-621e-488d-b939-f570112dea93.png)
+
+Full Video:
