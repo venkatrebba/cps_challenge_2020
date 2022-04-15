@@ -14,41 +14,54 @@ from tf.transformations import quaternion_from_euler
 
 
 class OffbPosCtl:
-    curr_drone_pose = PoseStamped()
-    waypointIndex = 0
-    distThreshold = 1
-    sim_ctr = 1
-
-    des_pose = PoseStamped()
-    isReadyToFly = False
-    # location
-    initial = 0
-
-    orientation1 =  quaternion_from_euler(0, 0, initial)
-    orientation2 =  quaternion_from_euler(0, 0, initial + 3*3.14/2)
-    orientation3 =  quaternion_from_euler(0, 0, initial + 3.14 )
-    orientation4 =  quaternion_from_euler(0, 0, initial + (3.14/2))
-    locations = numpy.matrix([
-
-                              [55, -10, 20.00, orientation1[0], orientation1[1], orientation1[2], orientation1[3]],
-                              [55, -10, 20.00, orientation2[0], orientation2[1], orientation2[2], orientation2[3]],
-
-                              [65, -10, 20.00, orientation2[0], orientation2[1], orientation2[2], orientation2[3]],
-                              [65, -10, 20.00, orientation3[0], orientation3[1], orientation3[2], orientation3[3]],
-
-                              [65, -20, 20.00, orientation3[0], orientation3[1], orientation3[2], orientation3[3]],
-                              [65, -20, 20.00, orientation4[0], orientation4[1], orientation4[2], orientation4[3]],
-
-                              [55, -20, 20.00, orientation4[0], orientation4[1], orientation4[2], orientation4[3]],
-                              [55, -20, 20.00, orientation1[0], orientation1[1], orientation1[2], orientation1[3]]
-                ])
-
-
+    
     def mavrosTopicStringRoot(self, uavID=0):
         mav_topic_string = '/mavros/'
         return mav_topic_string
 
+    def getWayPoints(self):
+        
+        locations = []
+
+        init_angle = 0
+        orientation1 = quaternion_from_euler(0, 0, init_angle)
+
+
+        ln =  numpy.linspace(0, 8*numpy.pi, 360)
+        z_points =  19.5 + 0.5 * numpy.sin(ln) 
+        for i in range(360):
+            x = self.rock_position[0] + self.rock_radius * math.cos(math.radians(i))
+            y = self.rock_position[1] + self.rock_radius * math.sin(math.radians(i))
+            z = z_points[i]
+
+            qu = quaternion_from_euler(0.0, 0.0, math.radians(i-180))
+            orientation_x = qu[0]
+            orientation_y = qu[1]
+            orientation_z = qu[2]
+            orientation_w = qu[3]
+
+            locations.append([x,y,z, orientation_x, orientation_y, orientation_z, orientation_w])
+
+        locations = numpy.array((locations))
+
+        return locations
+
+
+
     def __init__(self):
+
+        self. curr_drone_pose = PoseStamped()
+        self.waypointIndex = 0
+        self.distThreshold = 1
+        self.sim_ctr = 1
+
+        self.des_pose = PoseStamped()
+        self.isReadyToFly = False
+
+
+        self.rock_position = [60.208, -12.502, 20]
+        self.rock_radius = 3
+
         rospy.init_node('offboard_test', anonymous=True)
         pose_pub = rospy.Publisher('/mavros/setpoint_position/local', PoseStamped, queue_size=10)
         drone_pose_subscriber = rospy.Subscriber('/mavros/local_position/pose', PoseStamped,
@@ -69,6 +82,9 @@ class OffbPosCtl:
         rate = rospy.Rate(10)  # Hz
         rate.sleep()
         self.des_pose = self.copy_pose(self.curr_drone_pose)
+
+        self.locations = self.getWayPoints()
+
         shape = self.locations.shape
 
         while not rospy.is_shutdown():
@@ -90,15 +106,9 @@ class OffbPosCtl:
                 except rospy.ServiceException, e:
                     print ("mavros1/set_mode service call failed: %s" % e)
 
-            if self.waypointIndex is shape[0]:
+            if self.waypointIndex >= shape[0]:
                 self.waypointIndex = 0
                 self.sim_ctr += 1
-
-            if self.waypointIndex is 3:
-                attach.publish("ATTACH")
-
-            if self.waypointIndex is 5:
-                attach.publish("DETACH")
 
             if self.isReadyToFly:
                 des = self.set_desired_pose().position
@@ -107,11 +117,8 @@ class OffbPosCtl:
                 az_quat = quaternion_from_euler(0, 0, azimuth)
 
                 curr = self.curr_drone_pose.pose.position
-                dist = math.sqrt(
-                    (curr.x - des.x) * (curr.x - des.x) + (curr.y - des.y) * (curr.y - des.y) + (curr.z - des.z) * (
-                            curr.z - des.z))
-                if dist < self.distThreshold:
-                    self.waypointIndex += 1
+
+                self.waypointIndex += 1
 
             pose_pub.publish(self.des_pose)
             rate.sleep()
